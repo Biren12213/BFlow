@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BudgetFlow — A–K Equal Budget</title>
+<style>
+:root{--bg:#f4f6f9;--panel:#fff;--ink:#17212f;--muted:#6b7280;--line:#e5e7eb;--blue:#2563eb;--green:#16803c;--red:#c62828;--orange:#b45309}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:#17212f;color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.brand{font-size:20px;font-weight:800}.brand span{color:#60a5fa}.top{display:flex;gap:8px;align-items:center}.top input{width:145px}
+main{max-width:1450px;margin:auto;padding:20px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 3px 15px #00000009}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.field label{display:block;font-weight:700;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;padding:10px;border:1px solid #d4d9e1;border-radius:8px;background:#fff}
+button{border:0;border-radius:8px;padding:10px 13px;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#eef1f5;color:#263241}.danger{background:#fee2e2;color:#991b1b}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:13px}.stat small{display:block;color:var(--muted);font-weight:700}.stat b{font-size:21px;display:block;margin-top:4px}
+h2{font-size:17px;margin:0 0 13px}.note{color:var(--muted);font-size:12px;margin-top:8px}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:1000px}th,td{padding:11px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em;background:#f8fafc;position:sticky;top:0}
+.catname{font-weight:750}.pct{color:var(--muted)}.positive{color:var(--green);font-weight:800}.negative{color:var(--red);font-weight:800}.zero{color:#475569;font-weight:700}
+.status{font-size:11px;padding:4px 7px;border-radius:99px;font-weight:800}.ok{background:#dcfce7;color:#166534}.watch{background:#fef3c7;color:#92400e}.over{background:#fee2e2;color:#991b1b}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.right{text-align:right}.total-row td{font-weight:850;background:#f8fafc}
+.hidden{display:none}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){header{padding:12px}.top input{width:125px}main{padding:10px}.grid,.stats{grid-template-columns:1fr}}
+</style>
+<link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#17212f"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"></head>
+<body>
+<header><div class="brand">₹ <span>BudgetFlow</span></div><div class="top"><input id="month" type="month"><button class="primary" onclick="saveIncome()">Save Month</button></div></header>
+<main>
+<div class="card">
+<h2>Monthly Budget Setup</h2>
+<div class="grid">
+<div class="field"><label>Monthly Income (₹)</label><input id="income" type="number" min="0" step="1" placeholder="60000"></div>
+<div class="field"><label>Allocation</label><input id="pctCheck" readonly></div>
+<div class="field"><label>Total Current Allocation</label><input id="allocCheck" readonly></div>
+<div class="field"><label>Total Cumulative Available</label><input id="cumCheck" readonly></div>
+</div>
+<div class="note">All 11 categories are cumulative. Unused balance stays in the same category and carries into the next month.</div>
+</div>
+
+<div class="card"><div class="stats">
+<div class="stat"><small>Income</small><b id="sIncome">₹0</b></div>
+<div class="stat"><small>Current Allocation</small><b id="sAlloc">₹0</b></div>
+<div class="stat"><small>Carry Forward</small><b id="sCarry">₹0</b></div>
+<div class="stat"><small>Total Expenses</small><b id="sSpent">₹0</b></div>
+<div class="stat"><small>Remaining</small><b id="sRemain">₹0</b></div>
+</div></div>
+
+<div class="card">
+<h2>Budget Control — Category Wise</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Category</th><th>%</th><th>Current Month Allocation</th><th>Previous / Carry Forward</th><th>Total Available</th><th>Expenses This Month</th><th>Remaining Balance</th><th>Control</th></tr></thead>
+<tbody id="budgetBody"></tbody>
+</table></div>
+</div>
+
+<div class="card">
+<h2>Add Expense</h2>
+<div class="grid">
+<div class="field"><label>Category</label><select id="expenseCat"></select></div>
+<div class="field"><label>Amount (₹)</label><input id="expenseAmt" type="number" min="0" step="1"></div>
+<div class="field"><label>Date</label><input id="expenseDate" type="date"></div>
+<div class="field"><label>Description</label><input id="expenseNote" placeholder="e.g. Fuel / groceries"></div>
+</div>
+<div class="actions" style="margin-top:12px"><button class="primary" onclick="addExpense()">Add Expense</button><button class="secondary" onclick="showExpenses()">View Expenses</button></div>
+<div class="note">The expense is deducted only from the selected category.</div>
+</div>
+
+<div class="card" id="expensesCard">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Expense Register</h2><button class="danger" onclick="clearMonth()">Clear This Month</button></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Action</th></tr></thead><tbody id="expenseBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<h2>Allocation Settings</h2>
+<div class="grid" id="settings"></div>
+<div class="actions" style="margin-top:13px"><button class="primary" onclick="saveSettings()">Save Percentages</button><span id="settingTotal" class="note"></span></div>
+</div>
+</main>
+<script>
+const defaults=[["A",9.0909090909],["B",9.0909090909],["C",9.0909090909],["D",9.0909090909],["E",9.0909090909],["F",9.0909090909],["G",9.0909090909],["H",9.0909090909],["I",9.0909090909],["J",9.0909090909],["K",9.0909090909]];
+let db=JSON.parse(localStorage.getItem("budgetFlowTable")||'{"months":{},"settings":{}}');
+defaults.forEach(([n,p])=>{if(db.settings[n]===undefined)db.settings[n]=p});
+const $=id=>document.getElementById(id), money=n=>"₹"+Math.round(n||0).toLocaleString("en-IN");
+function save(){localStorage.setItem("budgetFlowTable",JSON.stringify(db))}
+function cats(){return Object.entries(db.settings)}
+function ensure(m){if(!db.months[m])db.months[m]={income:0,expenses:[]};return db.months[m]}
+function prev(m){let d=new Date(m+"-01T00:00:00");d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7)}
+function carry(cat,m,seen=new Set()){if(seen.has(m))return 0;seen.add(m);let p=prev(m),d=db.months[p];if(!d)return 0;let alloc=(+d.income||0)*(+db.settings[cat]||0)/100,spent=d.expenses.filter(e=>e.cat===cat).reduce((a,e)=>a+(+e.amount||0),0);return alloc+carry(cat,p,seen)-spent}
+function allocation(cat,m){return (+ensure(m).income||0)*(+db.settings[cat]||0)/100}
+function spent(cat,m){return ensure(m).expenses.filter(e=>e.cat===cat).reduce((a,e)=>a+(+e.amount||0),0)}
+function render(){
+ let m=$("month").value;if(!m)return;let d=ensure(m),sumA=0,sumC=0,sumS=0,sumR=0;
+ $("income").value=d.income||"";let ptotal=cats().reduce((a,[,p])=>a+(+p||0),0);
+ $("pctCheck").value=ptotal.toFixed(1)+"%"; $("allocCheck").value=money((+d.income||0)); 
+ $("expenseCat").innerHTML=cats().map(([c])=>`<option>${esc(c)}</option>`).join("");
+ $("budgetBody").innerHTML=cats().map(([c,p])=>{
+  let a=allocation(c,m),cf=carry(c,m),av=a+cf,sp=spent(c,m),bal=av-sp;
+  sumA+=a;sumC+=cf;sumS+=sp;sumR+=bal;
+  let used=av>0?sp/av:0, cls=bal<0?"negative":bal===0?"zero":"positive", status=bal<0?'<span class="status over">OVER</span>':used>=.8?'<span class="status watch">WATCH</span>':'<span class="status ok">OK</span>';
+  return `<tr><td class="catname">${esc(c)}</td><td class="pct">${p}%</td><td>${money(a)}</td><td>${money(cf)}</td><td><b>${money(av)}</b></td><td>${money(sp)}</td><td class="${cls}">${money(bal)}</td><td>${status}</td></tr>`
+ }).join("")+`<tr class="total-row"><td>TOTAL</td><td>${ptotal}%</td><td>${money(sumA)}</td><td>${money(sumC)}</td><td>${money(sumA+sumC)}</td><td>${money(sumS)}</td><td class="${sumR<0?'negative':'positive'}">${money(sumR)}</td><td></td></tr>`;
+ $("cumCheck").value=money(sumA+sumC);$("sIncome").textContent=money(d.income);$("sAlloc").textContent=money(sumA);$("sCarry").textContent=money(sumC);$("sSpent").textContent=money(sumS);$("sRemain").textContent=money(sumR);
+ renderExpenses();renderSettings();
+}
+function saveIncome(){let m=$("month").value;if(!m)return alert("Select a month.");ensure(m).income=+$("income").value||0;save();render()}
+function addExpense(){let m=$("month").value,a=+$("expenseAmt").value;if(!m||!a||a<0)return alert("Enter a valid expense.");ensure(m).expenses.push({cat:$("expenseCat").value,amount:a,date:$("expenseDate").value||new Date().toISOString().slice(0,10),note:$("expenseNote").value.trim()});save();$("expenseAmt").value="";$("expenseNote").value="";render()}
+function renderExpenses(){let m=$("month").value,es=ensure(m).expenses;$("expenseBody").innerHTML=es.length?es.slice().reverse().map((e,i)=>{let idx=es.length-1-i;return `<tr><td>${esc(e.date)}</td><td>${esc(e.cat)}</td><td>${esc(e.note||"—")}</td><td><b>${money(e.amount)}</b></td><td><button class="danger" onclick="delExpense(${idx})">Delete</button></td></tr>`}).join(""):'<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:25px">No expenses this month.</td></tr>'}
+function delExpense(i){ensure($("month").value).expenses.splice(i,1);save();render()}
+function clearMonth(){if(confirm("Clear all expenses for this month?")){ensure($("month").value).expenses=[];save();render()}}
+function showExpenses(){$("expensesCard").scrollIntoView({behavior:"smooth"})}
+function renderSettings(){$("settings").innerHTML=cats().map(([c,p])=>`<div class="field"><label>${esc(c)}</label><input class="pct" data-cat="${esc(c)}" type="number" min="0" max="100" step=".1" value="${p}"></div>`).join("");$("settingTotal").textContent="Total: "+cats().reduce((a,[,p])=>a+(+p||0),0).toFixed(1)+"%"}
+function saveSettings(){let t=0;document.querySelectorAll(".pct").forEach(x=>{db.settings[x.dataset.cat]=+x.value||0;t+=+x.value||0});if(Math.abs(t-100)>.001)return alert("Percentages must total exactly 100%. Current total: "+t+"%.");save();render()}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+(function(){let d=new Date(),m=d.toISOString().slice(0,7),date=d.toISOString().slice(0,10);$("month").value=m;$("expenseDate").value=date;render();$("month").onchange=render})()
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+}
+</script>
+</body>
+</html>
